@@ -1,0 +1,73 @@
+{
+  "description": "Maps ZNX AI agent slots to Open Dental API fields. Used to translate structured data collected during the call into a valid Open Dental appointment or patient record write.",
+  "version": "1.0",
+  "open_dental_api_base": "http://[PRACTICE_SERVER]/opendentalapi/v1",
+
+  "appointment_write": {
+    "endpoint": "/appointments",
+    "method": "POST",
+    "field_mapping": {
+      "agent_slot": "open_dental_field",
+      "patient_first_name": "FName",
+      "patient_last_name": "LName",
+      "date_of_birth": "Birthdate",
+      "appointment_reason": "ProcDescript",
+      "preferred_date": "AptDateTime",
+      "preferred_time": "AptDateTime",
+      "patient_type": null
+    },
+    "static_fields": {
+      "AptStatus": "Scheduled",
+      "IsNewPatient": "derived_from_patient_type_slot",
+      "ClinicNum": "[CONFIGURE: Clinic number from Open Dental]",
+      "ProvNum": "[CONFIGURE: Default provider number]"
+    },
+    "notes": "AptDateTime must be constructed from preferred_date + preferred_time slots after checking against available slots via GET /appointments/available. Do not write directly without availability check."
+  },
+
+  "patient_lookup": {
+    "endpoint": "/patients",
+    "method": "GET",
+    "match_fields": ["LName", "FName", "Birthdate"],
+    "notes": "Used for returning patient verification. If match found, use PatNum for appointment write. If no match, treat as new patient."
+  },
+
+  "patient_create": {
+    "endpoint": "/patients",
+    "method": "POST",
+    "required_fields": {
+      "FName": "patient_first_name",
+      "LName": "patient_last_name",
+      "Birthdate": "date_of_birth",
+      "PatStatus": "Patient",
+      "IsNewPatient": true
+    },
+    "notes": "Only create if patient_lookup returns no match and patient_type == 'new'."
+  },
+
+  "insurance_flag": {
+    "action": "create_task_in_open_dental",
+    "endpoint": "/tasks",
+    "method": "POST",
+    "fields": {
+      "Descript": "Formatted string: 'Insurance verification needed: [patient_first_name] [patient_last_name] DOB [date_of_birth] — Provider: [insurance_provider] Member ID: [member_id]'",
+      "TaskStatus": "New",
+      "UserNumAssigned": "[CONFIGURE: Staff user number]",
+      "DateTimeEntry": "auto"
+    }
+  },
+
+  "data_types": {
+    "date_format_input": "natural language from caller (e.g., 'March 12th 1989', 'next Thursday')",
+    "date_format_output": "YYYY-MM-DD for Open Dental API",
+    "time_format_output": "HH:MM:SS in 24-hour format",
+    "name_case": "title case"
+  },
+
+  "error_handling": {
+    "patient_not_found": "Treat as new patient. Create patient record before appointment write.",
+    "slot_unavailable": "Return two alternative available slots to agent. Do not book without caller confirmation.",
+    "api_timeout": "Queue appointment data locally. Retry up to 3 times. Flag for manual staff review if all retries fail.",
+    "missing_required_field": "Return error to agent. Agent will re-prompt caller for missing field."
+  }
+}

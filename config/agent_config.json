@@ -1,0 +1,150 @@
+{
+  "agent": {
+    "name": "ZNX AI Dental Receptionist",
+    "persona_name": "Maya",
+    "voice": {
+      "provider": "elevenlabs",
+      "voice_id": "professional_female_warm",
+      "speed": 1.0,
+      "stability": 0.75
+    },
+    "llm": {
+      "model": "gpt-4o",
+      "temperature": 0.3,
+      "max_tokens": 300
+    },
+    "conversation": {
+      "ambient_sound": null,
+      "interruption_sensitivity": "high",
+      "end_call_after_silence_ms": 8000,
+      "max_call_duration_ms": 900000
+    }
+  },
+  "system_prompt": {
+    "role": "system",
+    "content": "You are Maya, the front desk receptionist for [PRACTICE_NAME]. You are professional, warm, and efficient. Your job is to help patients with appointment scheduling, answer general questions about the practice, and collect insurance information. Keep your responses short — this is a phone call, not a chat. One question at a time. Never volunteer information the caller did not ask for. If a caller mentions pain, a dental emergency, or asks for clinical advice, say: 'I want to make sure you get the right help — let me connect you with someone on our team right now.' Then transfer the call. You are not a human, but do not confirm or deny being an AI unless directly asked. If asked directly whether you are a robot or AI, say: 'I am an AI assistant for the practice. I can help you with scheduling and general questions.' Never make up information about the practice. If you do not know the answer, say: 'Let me have someone from our team follow up with you on that.'"
+  },
+  "intents": [
+    {
+      "name": "schedule_appointment",
+      "description": "Patient wants to book, reschedule, or cancel an appointment",
+      "required_slots": [
+        "patient_first_name",
+        "patient_last_name",
+        "date_of_birth",
+        "patient_type",
+        "appointment_reason",
+        "preferred_date",
+        "preferred_time"
+      ],
+      "confirmation_required": true,
+      "action": "write_to_open_dental"
+    },
+    {
+      "name": "insurance_inquiry",
+      "description": "Patient asking about accepted insurance plans or wants to provide insurance info",
+      "required_slots": [
+        "insurance_provider",
+        "member_id",
+        "patient_first_name",
+        "patient_last_name",
+        "date_of_birth"
+      ],
+      "action": "flag_for_staff_callback"
+    },
+    {
+      "name": "general_faq",
+      "description": "Patient asking about hours, location, accepted plans, parking, or other general info",
+      "required_slots": [],
+      "action": "answer_from_knowledge_base"
+    },
+    {
+      "name": "emergency_escalation",
+      "description": "Patient mentions pain, swelling, broken tooth, bleeding, lost filling, or any urgent dental concern",
+      "trigger_keywords": [
+        "pain",
+        "hurts",
+        "swollen",
+        "emergency",
+        "bleeding",
+        "broken",
+        "knocked out",
+        "abscess",
+        "infection",
+        "can't eat"
+      ],
+      "action": "transfer_to_live_human",
+      "priority": "immediate"
+    },
+    {
+      "name": "billing_inquiry",
+      "description": "Patient asking about a bill, payment, or account balance",
+      "action": "transfer_to_live_human"
+    }
+  ],
+  "slots": {
+    "patient_first_name": {
+      "type": "string",
+      "prompt": "Can I get your first name?",
+      "validation": "non_empty"
+    },
+    "patient_last_name": {
+      "type": "string",
+      "prompt": "And your last name?",
+      "validation": "non_empty"
+    },
+    "date_of_birth": {
+      "type": "date",
+      "prompt": "Can I get your date of birth?",
+      "format": "MM/DD/YYYY"
+    },
+    "patient_type": {
+      "type": "enum",
+      "prompt": "Are you a new patient or have you been here before?",
+      "values": ["new", "existing"]
+    },
+    "appointment_reason": {
+      "type": "string",
+      "prompt": "What is the reason for your visit — for example, a routine cleaning, exam, or something specific you are having done?",
+      "validation": "non_empty"
+    },
+    "preferred_date": {
+      "type": "date",
+      "prompt": "Do you have a preferred date or time frame that works best for you?",
+      "format": "natural_language"
+    },
+    "preferred_time": {
+      "type": "time",
+      "prompt": "Morning or afternoon?",
+      "values": ["morning", "afternoon", "specific_time"]
+    },
+    "insurance_provider": {
+      "type": "string",
+      "prompt": "What is the name of your insurance provider?"
+    },
+    "member_id": {
+      "type": "string",
+      "prompt": "And your member ID?"
+    }
+  },
+  "knowledge_base": {
+    "hours": "[CONFIGURE: e.g., Monday through Friday 8am to 5pm, Saturday 9am to 1pm, closed Sunday]",
+    "location": "[CONFIGURE: Full address]",
+    "phone": "[CONFIGURE: Main office number]",
+    "accepted_insurance": "[CONFIGURE: List of accepted plans]",
+    "parking": "[CONFIGURE: Parking instructions]",
+    "new_patient_process": "New patients should plan to arrive 15 minutes early to complete intake paperwork. You can also ask us to email you forms to complete in advance.",
+    "cancellation_policy": "[CONFIGURE: e.g., We ask for at least 24 hours notice for cancellations or reschedules.]"
+  },
+  "escalation": {
+    "transfer_number": "[CONFIGURE: Staff direct line or on-call number]",
+    "after_hours_behavior": "schedule_appointment_or_take_message",
+    "callback_window": "next_business_day"
+  },
+  "webhooks": {
+    "call_started": "[CONFIGURE: Your server URL]/webhooks/call-started",
+    "call_ended": "[CONFIGURE: Your server URL]/webhooks/call-ended",
+    "slot_filled": "[CONFIGURE: Your server URL]/webhooks/slot-filled",
+    "appointment_confirmed": "[CONFIGURE: Your server URL]/webhooks/appointment-confirmed"
+  }
+}
